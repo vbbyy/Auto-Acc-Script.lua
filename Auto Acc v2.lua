@@ -1,5 +1,40 @@
 -- @fnnywys
 
+local ALLOWED_UIDS = {
+    [966434] = true,
+}
+
+local function verifyUIDAccess()
+    local localPlayer = GetLocal()
+    local attempts = 0
+    
+    while (not localPlayer or not localPlayer.userid or localPlayer.userid == 0) and attempts < 10 do
+        Sleep(200)
+        localPlayer = GetLocal()
+        attempts = attempts + 1
+    end
+
+    if not localPlayer or not localPlayer.userid or localPlayer.userid == 0 then
+        LogToConsole("`4[SYSTEM LOCK] `wGagal membaca User ID akun Anda!")
+        return false
+    end
+
+    local currentUID = tonumber(localPlayer.userid)
+
+    if not ALLOWED_UIDS[currentUID] then
+        LogToConsole("`4[SYSTEM LOCK] `wAkses Ditolak! UID (`w" .. tostring(currentUID) .. "`4) tidak terdaftar.")
+        return false
+    end
+
+    LogToConsole("`2[SYSTEM LOCK] `wAkses Diterima! Selamat datang, UID: `w" .. tostring(currentUID))
+    return true
+end
+
+if not verifyUIDAccess() then
+    return
+end
+-- =======================================================
+
 local CMD_HOST          = "https://priced-expression-interracial-providing.trycloudflare.com"
 local CMD_POLL_INTERVAL = 2500
 local autoRespawn       = false
@@ -41,7 +76,7 @@ local VIP_BREAK_DISCORD_ID = "1176411157242839132"
 local VIP_BREAK_ENABLE_TAG = true
 local VIP_DOOR_ID          = 3798
 
-local MODAL_REQ = { basic = 30, infinity = 200, inti = 80, recom = 150, all = 0 }
+local MODAL_REQ = { basic = 30, infinity = 200, inti = 80, recom = 0, all = 0 }
 local ID_BGL  = 7188
 local ID_BBGL = 11550
 
@@ -91,19 +126,30 @@ end
 
 local function formatNumbers(text, fallbackColor)
     local result = {}
-    local lastIndex = 1
+    local currentColor = fallbackColor
+    local i = 1
+    local len = #text
 
-    for matchStart, matchEnd in text:gmatch("()`..()") do
-        local segment = text:sub(lastIndex, matchStart - 1)
-        segment = segment:gsub("(%d+)", C.blk .. "%1" .. fallbackColor)
-        table.insert(result, segment)
-        table.insert(result, text:sub(matchStart, matchEnd - 1))
-        lastIndex = matchEnd
+    while i <= len do
+        if text:sub(i, i) == "`" and i < len then
+            local codeChar = text:sub(i + 1, i + 1)
+            currentColor = "`" .. codeChar
+            table.insert(result, currentColor)
+            i = i + 2
+        else
+            local nextBacktick = text:find("`", i, true)
+            local segment
+            if nextBacktick then
+                segment = text:sub(i, nextBacktick - 1)
+                i = nextBacktick
+            else
+                segment = text:sub(i)
+                i = len + 1
+            end
+            segment = segment:gsub("(%d+)", C.blk .. "%1" .. currentColor)
+            table.insert(result, segment)
+        end
     end
-
-    local tail = text:sub(lastIndex)
-    tail = tail:gsub("(%d+)", C.blk .. "%1" .. fallbackColor)
-    table.insert(result, tail)
 
     return table.concat(result)
 end
@@ -266,13 +312,19 @@ local function readAndClearCmd()
     return content
 end
 
+local function clickTile(x, y)
+    SendPacketRaw(false, { type=3, state=32, value=32, px=x, py=y, x=x*32, y=y*32 })
+    Sleep(350)
+end
+
 local function sendLockEdit(x, y, netID, userID, value)
+    clickTile(x, y)
     local pkt = "action|dialog_return\ndialog_name|lock_edit\n"
         .. "x|" .. x .. "|\ny|" .. y .. "|\n"
     if netID and value == 1 then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     pkt = pkt .. ACCESS_FIELD .. userID .. "|" .. value .. "\nis_public|0\nignore_empty|0\n"
     SendPacket(2, pkt)
-    Sleep(70)
+    Sleep(300)
 end
 
 local function accLock(netID, userID)
@@ -289,11 +341,12 @@ local function accVipDoor(netID, userID, flagType, vipIndex)
     local doors = VIP_DOORS[flagType]
     if not doors or not doors[vipIndex] then return end
     local door = doors[vipIndex]
+    clickTile(door.x, door.y)
     local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
     if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     SendPacket(2, pkt .. userID .. "|1\n")
-    Sleep(70)
+    Sleep(300)
 end
 
 local function unaccLock(userID)
@@ -310,12 +363,13 @@ local function unaccVipDoor(userID, flagType, vipIndex)
     local doors = VIP_DOORS[flagType]
     if not doors or not doors[vipIndex] then return end
     local door = doors[vipIndex]
+    clickTile(door.x, door.y)
     SendPacket(2,
         "action|dialog_return\ndialog_name|vip_edit\n"
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
         .. userID .. "|0\n"
     )
-    Sleep(70)
+    Sleep(300)
 end
 
 local function flagLabels(flagList)
@@ -324,23 +378,32 @@ local function flagLabels(flagList)
     return table.concat(out, " ") .. " "
 end
 
-local function doAcc(target, flagType, vipArg, vipOnly)
+local MAX_RESOLVE_RETRY = 5
+
+local function requeueOrFail(action, target, flagType, vipArg, vipOnly, retryCount)
+    retryCount = retryCount or 0
+    if retryCount < MAX_RESOLVE_RETRY then
+        L(C.dim, action, " ", target, " belum kebaca, retry ", retryCount + 1, "/", MAX_RESOLVE_RETRY)
+        table.insert(pendingQueue, {
+            action = action, target = target,
+            flagType = flagType, vipArg = vipArg, vipOnly = vipOnly,
+            retryCount = retryCount + 1,
+        })
+        return true
+    end
+    L(C.err, "Tidak ditemukan: ", target)
+    return false
+end
+
+local function doAcc(target, flagType, vipArg, vipOnly, retryCount)
+    retryCount = retryCount or 0
     local plr, netID, resolvedUID = fnywys(target)
     if not resolvedUID then
-        L(C.err, "Tidak ditemukan: ", target)
+        requeueOrFail("acc", target, flagType, vipArg, vipOnly, retryCount)
         return
     end
 
-    if not plr then
-        L(C.dim, resolvedUID, " belum di world, antri")
-        table.insert(pendingQueue, {
-            action = "acc", target = resolvedUID,
-            flagType = flagType, vipArg = vipArg, vipOnly = vipOnly,
-        })
-        return
-    end
-
-    local pname    = cName(plr.name)
+    local pname    = plr and cName(plr.name) or ("UID:" .. resolvedUID)
     local userID   = resolvedUID
     local flagList = flagType == "all" and FLAG_ORDER or { flagType }
     isRunning      = true
@@ -372,14 +435,14 @@ local function doAcc(target, flagType, vipArg, vipOnly)
         end
     end
 
-    Sleep(50)
+    Sleep(120)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Acc ", C.txt, pname, C.dim, " | ", flagInfo)
 
     chat(TAG .. " " .. C.txt .. "Added Room " .. flagInfo .. C.txt .. ": " .. pname)
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
@@ -406,25 +469,25 @@ local function doUnacc(target, flagType, vipArg, vipOnly)
         for _, ftype in ipairs(flagList) do unaccFlag(userID, ftype) end
     end
 
-    -- Cabut pintu VIP 1-7 seluruhnya untuk setiap room
     for _, ftype in ipairs(flagList) do
         for i = 1, 7 do
             unaccVipDoor(userID, ftype, i)
         end
     end
 
-    Sleep(50)
+    Sleep(120)
     isRunning = false
     L(C.warn, "Unacc ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Access Removed: " .. C.txt .. userID)
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
-local function doAddFlag(target, flagType)
+local function doAddFlag(target, flagType, retryCount)
+    retryCount = retryCount or 0
     local plr, netID, resolvedUID = fnywys(target)
     if not resolvedUID then
-        L(C.err, "Tidak ditemukan: ", target)
+        requeueOrFail("addflag", target, flagType, nil, nil, retryCount)
         return
     end
 
@@ -434,13 +497,13 @@ local function doAddFlag(target, flagType)
 
     for _, ftype in ipairs(flagList) do accFlag(netID, resolvedUID, ftype) end
 
-    Sleep(50)
+    Sleep(120)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Flag ", C.txt, pname, C.dim, " | ", flagInfo)
     chat(TAG .. " " .. C.txt .. "Added Flag " .. flagInfo .. C.txt .. ": @" .. pname)
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
@@ -451,11 +514,11 @@ local function doUnflag(target, flagType)
     local flagList = (not flagType or flagType == "all") and FLAG_ORDER or { flagType }
     isRunning = true
     for _, ftype in ipairs(flagList) do unaccFlag(userID, ftype) end
-    Sleep(50)
+    Sleep(120)
     isRunning = false
     L(C.warn, "Unflag ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Flag Removed: " .. C.txt .. userID)
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
@@ -463,14 +526,14 @@ local function bulkLock(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|lock_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. ACCESS_FIELD .. uid .. "|0\n" end
     SendPacket(2, pkt .. "is_public|0\nignore_empty|0\n")
-    Sleep(70)
+    Sleep(160)
 end
 
 local function bulkVip(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|vip_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. uid .. "|0\n" end
     SendPacket(2, pkt)
-    Sleep(70)
+    Sleep(160)
 end
 
 local function runBulkUnacc(uids)
@@ -496,11 +559,11 @@ local function doUnaccAllDirect(targetUids)
     end
     isRunning = true
     runBulkUnacc(targetUids)
-    Sleep(50)
+    Sleep(120)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUids, " user")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
@@ -560,11 +623,11 @@ local function doUnaccAll(skipUids)
 
     runBulkUnacc(targetUIDs)
 
-    Sleep(50)
+    Sleep(120)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUIDs, " user", skipped > 0 and (C.dim .. " (skip " .. skipped .. ")") or "")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(50)
+    Sleep(120)
     respawnIfNeeded()
 end
 
@@ -1249,69 +1312,64 @@ local function processPendingQueue()
             RunThread(function() doUnacc(item.target, item.flagType, item.vipArg, item.vipOnly or false) end)
             return
 
-        elseif isPlayerInWorld(item.target) then
+        elseif item.action == "acc" then
             table.remove(pendingQueue, i)
-            if item.action == "accall" then
-                local capturedTarget = item.target
-                local function doAccAllQueued(t)
-                    local plr, netID, resolvedUID = fnywys(t)
-                    if not resolvedUID then return end
-                    local pname  = plr and cName(plr.name) or ("UID:" .. resolvedUID)
-                    local userID = resolvedUID
-                    isRunning    = true
+            local plr, netid, resolvedUID = fnywys(item.target)
+            local reqModal = MODAL_REQ[item.flagType]
+            if netid and reqModal and reqModal > 0 then
+                pendingBalanceCheck = { uid = resolvedUID or item.target, room = item.flagType, vipArg = item.vipArg, vipOnly = item.vipOnly, time = os.time() }
+                SendPacket(2, "action|dialog_return\ndialog_name|popup\nnetID|" .. netid .. "|\nbuttonClicked|viewinv")
+            else
+                RunThread(function() doAcc(item.target, item.flagType, item.vipArg, item.vipOnly, item.retryCount) end)
+            end
+            return
 
-                    accLock(netID, userID)
-                    Sleep(50)
-                    for _, ftype in ipairs(FLAG_ORDER) do
-                        accFlag(netID, userID, ftype)
-                        Sleep(50)
-                    end
-                    for _, ftype in ipairs(FLAG_ORDER) do
-                        local doors = VIP_DOORS[ftype]
-                        if doors then
-                            for i = 1, 7 do
-                                if doors[i] then
-                                    local door = doors[i]
-                                    local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
-                                        .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
-                                    if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
-                                    SendPacket(2, pkt .. userID .. "|1\n")
-                                    Sleep(70)
-                                end
+        elseif item.action == "addflag" then
+            table.remove(pendingQueue, i)
+            RunThread(function() doAddFlag(item.target, item.flagType, item.retryCount) end)
+            return
+
+        elseif item.action == "accall" then
+            table.remove(pendingQueue, i)
+            local capturedTarget = item.target
+            local function doAccAllQueued(t)
+                local plr, netID, resolvedUID = fnywys(t)
+                if not resolvedUID then return end
+                local pname  = plr and cName(plr.name) or ("UID:" .. resolvedUID)
+                local userID = resolvedUID
+                isRunning    = true
+
+                accLock(netID, userID)
+                Sleep(120)
+                for _, ftype in ipairs(FLAG_ORDER) do
+                    accFlag(netID, userID, ftype)
+                    Sleep(120)
+                end
+                for _, ftype in ipairs(FLAG_ORDER) do
+                    local doors = VIP_DOORS[ftype]
+                    if doors then
+                        for i = 1, 7 do
+                            if doors[i] then
+                                local door = doors[i]
+                                local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
+                                    .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
+                                if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
+                                SendPacket(2, pkt .. userID .. "|1\n")
+                                Sleep(160)
                             end
                         end
-                        Sleep(40)
                     end
-
-                    Sleep(50)
-                    isRunning = false
-                    L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
-                    chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
-                    Sleep(50)
-                    respawnIfNeeded()
-                end
-                RunThread(function() doAccAllQueued(capturedTarget) end)
-
-            elseif item.action == "acc" then
-                local targetUid = tonumber(item.target)
-                local netid = nil
-                for _, plr in pairs(GetPlayerList()) do
-                    if plr.userid == targetUid then
-                        netid = plr.netid
-                        break
-                    end
+                    Sleep(40)
                 end
 
-                local reqModal = MODAL_REQ[item.flagType]
-                if netid and reqModal and reqModal > 0 then
-                    pendingBalanceCheck = { uid = targetUid, room = item.flagType, vipArg = item.vipArg, vipOnly = item.vipOnly, time = os.time() }
-                    SendPacket(2, "action|dialog_return\ndialog_name|popup\nnetID|" .. netid .. "|\nbuttonClicked|viewinv")
-                else
-                    RunThread(function() doAcc(item.target, item.flagType, item.vipArg, item.vipOnly) end)
-                end
-            elseif item.action == "addflag" then
-                RunThread(function() doAddFlag(item.target, item.flagType) end)
+                Sleep(120)
+                isRunning = false
+                L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
+                chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
+                Sleep(120)
+                respawnIfNeeded()
             end
+            RunThread(function() doAccAllQueued(capturedTarget) end)
             return
 
         else
@@ -1388,11 +1446,11 @@ local function handleBotCommand(parts)
             isRunning    = true
 
             accLock(netID, userID)
-            Sleep(50)
+            Sleep(120)
 
             for _, ftype in ipairs(FLAG_ORDER) do
                 accFlag(netID, userID, ftype)
-                Sleep(50)
+                Sleep(120)
             end
 
             for _, ftype in ipairs(FLAG_ORDER) do
@@ -1405,19 +1463,19 @@ local function handleBotCommand(parts)
                                 .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
                             if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
                             SendPacket(2, pkt .. userID .. "|1\n")
-                            Sleep(70)
+                            Sleep(160)
                         end
                     end
                 end
                 Sleep(40)
             end
 
-            Sleep(50)
+            Sleep(120)
             isRunning = false
 
             L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
             chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
-            Sleep(50)
+            Sleep(120)
             respawnIfNeeded()
         end
 
