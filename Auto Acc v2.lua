@@ -76,7 +76,7 @@ local VIP_BREAK_DISCORD_ID = "1176411157242839132"
 local VIP_BREAK_ENABLE_TAG = true
 local VIP_DOOR_ID          = 3798
 
-local MODAL_REQ = { basic = 30, infinity = 200, inti = 80, recom = 0, all = 0 }
+local MODAL_REQ = { basic = 30, infinity = 200, inti = 80, recom = 150, all = 0 }
 local ID_BGL  = 7188
 local ID_BBGL = 11550
 
