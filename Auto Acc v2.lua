@@ -1,7 +1,7 @@
 -- @fnnywys
 
 local ALLOWED_UIDS = {
-    [668120] = true,
+    [966434] = true,
 }
 
 local function verifyUIDAccess()
