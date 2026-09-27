@@ -1,7 +1,7 @@
 -- @fnnywys
 
 local ALLOWED_UIDS = {
-    [966434] = true,
+    [668120] = true,
 }
 
 local function verifyUIDAccess()
@@ -35,7 +35,12 @@ if not verifyUIDAccess() then
 end
 -- =======================================================
 
-local CMD_HOST          = "46.8.226.128:3000"
+local function normalizeUrl(url)
+    url = tostring(url or ""):gsub("%s+", "")
+    return url:gsub("/+$", "")
+end
+
+local CMD_HOST          = normalizeUrl("46.8.226.128:3000")
 local CMD_POLL_INTERVAL = 2500
 local autoRespawn       = false
 
@@ -864,10 +869,9 @@ RunThread(function()
             afkLoadWatch()
         end
 
-        local world = (GetWorld() and GetWorld().name) or ""
+        local now = afkEpoch()
 
-        if afkCount(AFK_WATCH) == 0 then
-        elseif world == "" or world == "EXIT" then
+        if world == "" or world == "EXIT" then
             afkFlushLeft("left_world")
 
             if AFK_HOME_WORLD ~= "" then
@@ -877,6 +881,13 @@ RunThread(function()
                     local ok = pcall(RequestJoinWorld, AFK_HOME_WORLD)
                     L(ok and C.info or C.err, "AFK rejoin ", AFK_HOME_WORLD, ok and "" or " gagal")
                 end
+            end
+
+            -- Heartbeat lapor walau di EXIT / reconnecting agar status guard tetap ONLINE
+            if AFK_FIRST_SEND or (now - AFK_LAST_SEND >= AFK_REPORT_SEC) then
+                AFK_FIRST_SEND = false
+                AFK_LAST_SEND  = now
+                afkSendReport({}, {}, "exit_heartbeat")
             end
         else
             AFK_LEFT_SINCE = nil
@@ -1491,6 +1502,7 @@ local function handleBotCommand(parts)
 end
 
 local function tryFetchConfig(url)
+    url = normalizeUrl(url)
     local ok, res = pcall(MakeRequest, url .. "/config", "GET", {
         ["User-Agent"]      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         ["Accept"]          = "application/json, text/plain, */*",
@@ -1504,7 +1516,7 @@ local function tryFetchConfig(url)
     if content:find("<!DOCTYPE", 1, true) or content:find("<html", 1, true) then
         return nil
     end
-    if not content:find('"groupName"', 1, true) and not content:find('"cmdHost"', 1, true) then
+    if not content:find('"groupName"', 1, true) and not content:find('"cmdHost"', 1, true) and not content:find('"afkUids"', 1, true) then
         return nil
     end
     return content
@@ -1516,13 +1528,13 @@ local function bootstrapCmdHost()
     if content then
         local host = content:match('"cmdHost"%s*:%s*"([^"]+)"')
         if host and host ~= "" then
-            CMD_HOST = host
+            CMD_HOST = normalizeUrl(host)
             L(C.ok, "Terkoneksi ", C.dim, CMD_HOST)
         else
-            L(C.ok, "Terkoneksi ", C.dim, "(URL bawaan)")
+            L(C.ok, "Terkoneksi ", C.dim, "(URL bawaan: " .. CMD_HOST .. ")")
         end
     else
-        L(C.err, "Gagal konek / diblokir Cloudflare")
+        L(C.err, "Gagal konek / diblokir Cloudflare: " .. CMD_HOST)
     end
 end
 
