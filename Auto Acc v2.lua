@@ -1249,7 +1249,7 @@ AddHook("OnVariant", "balanceCheckHook", function(var)
         else
             L(C.err, "Modal ", C.txt, t_uid, C.dim, " | ", C.err, totalBgl, "/", req, " BGL")
             chat(C.err .. "Modal tidak cukup! " .. C.txt .. "Butuh " .. C.info .. req .. " BGL " .. C.txt .. "untuk room " .. rtag)
-            chat(C.txt .. "Kamu hanya punya " .. C.info .. totalBgl .. " BGL")
+            chat(C.txt .. "Kamu hanya memiliki " .. C.info .. totalBgl .. " BGL")
 
             postNotify("/rejectacc", t_uid,
                 "❌ *AKSES DITOLAK*\n"
