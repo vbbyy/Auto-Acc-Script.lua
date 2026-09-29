@@ -1063,7 +1063,7 @@ AddHook("OnVariant", "takeaccHook", function(var)
         local secured = content:match('"secured"%s*:%s*(%a+)')
         local srvMsg  = content:match('"msg"%s*:%s*"([^"]*)"') or ""
         if secured and secured:lower() == "true" then
-            secureTag = " " .. C.warn .. "[SECURED]"
+            secureTag = " " .. C.warn .. "[`bSECURED]"
         end
 
         if not reg or reg:lower() ~= "true" then
