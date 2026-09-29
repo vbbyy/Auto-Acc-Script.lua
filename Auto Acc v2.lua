@@ -10,7 +10,7 @@ local CMD_HOST          = normalizeUrl("46.8.226.128:3000")
 local CMD_POLL_INTERVAL = 300
 local autoRespawn       = false
 
-local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019 }
+local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019, 366859 }
 
 local LOCK = { x = 50, y = 51 }
 
@@ -47,7 +47,7 @@ local VIP_BREAK_DISCORD_ID = "1176411157242839132"
 local VIP_BREAK_ENABLE_TAG = true
 local VIP_DOOR_ID          = 3798
 
-local MODAL_REQ = { basic = 30, infinity = 200, inti = 80, recom = 150, all = 0 }
+local MODAL_REQ = { basic = 15, infinity = 200, inti = 80, recom = 150, all = 0 }
 local ID_BGL  = 7188
 local ID_BBGL = 11550
 
