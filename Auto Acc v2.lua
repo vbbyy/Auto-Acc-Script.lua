@@ -1061,6 +1061,7 @@ AddHook("OnVariant", "takeaccHook", function(var)
         local content = tostring(res.content or "")
         local reg     = content:match('"registered"%s*:%s*(%a+)')
         local secured = content:match('"secured"%s*:%s*(%a+)')
+        local srvMsg  = content:match('"msg"%s*:%s*"([^"]*)"') or ""
         if secured and secured:lower() == "true" then
             secureTag = " " .. C.warn .. "[SECURED]"
         end
@@ -1099,6 +1100,23 @@ AddHook("OnVariant", "takeaccHook", function(var)
                 end
             end
         else
+            if secured and secured:lower() == "true" then
+                local reason = srvMsg:match("^Account secured%s*:%s*(.+)$") or srvMsg
+                if reason == "" then reason = "Account secured" end
+
+                L(C.err, "takeacc ditolak ", uid, C.dim, " (secured: ", reason, ")")
+                whisperTo(netid, TAG .. " " .. C.err .. "Akun kamu di-secure oleh admin. Reason: " .. reason)
+                say(C.err .. "GAGAL" .. C.txt .. " - Secured")
+                return
+            end
+
+            if srvMsg:lower():find("retax", 1, true) then
+                L(C.err, "takeacc ditolak ", uid, C.dim, " (retax pending)")
+                whisperTo(netid, TAG .. " " .. C.err .. "Sedang proses retax, .takeacc belum tersedia.")
+                say(C.err .. "GAGAL" .. C.txt .. " - Retax pending")
+                return
+            end
+
             local room = content:match('"room"%s*:%s*"([^"]+)"') or ""
             local rc   = ROOM_COLOR[room:lower()] or C.txt
             L(C.ok, "takeacc ", uid, room ~= "" and (C.dim .. " (" .. room .. ")") or "")
@@ -1957,7 +1975,7 @@ AddHook("OnVariant", "SpammerTalkAutoDetect", function(var)
         if not text:find(slot.spam_text, 1, true) then
             if SPAMMER_CHECKED[netid] then
                 SPAMMER_CHECKED[netid] = nil
-                slotLog(slot, C.warn, "Teks terdeteksi berbeda, otomatis memperbaiki...")
+                slotLog(slot, C.warn, "Text terdeteksi berbeda, otomatis memperbaiki...")
             end
         end
     end
@@ -2014,7 +2032,7 @@ local function processSpammerSlave(pos)
     local r = checkSpammerText(netid, pos)
     if r == "fail" then return false end
 
-    slotLog(pos, C.ok, "terpasang + teks")
+    slotLog(pos, C.ok, "Terpasang")
     Sleep(300)
     return true
 end
