@@ -7,7 +7,7 @@ local function normalizeUrl(url)
 end
 
 local CMD_HOST          = normalizeUrl("46.8.226.128:3000")
-local CMD_POLL_INTERVAL = 2500
+local CMD_POLL_INTERVAL = 300
 local autoRespawn       = false
 
 local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019 }
@@ -15,8 +15,8 @@ local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019 }
 local LOCK = { x = 50, y = 51 }
 
 local FLAGS = {
-    basic    = { x = 29, y = 30 },    
-    inti     = { x = 29, y = 46 },    
+    basic    = { x = 29, y = 30 },  
+    inti     = { x = 29, y = 46 },  
     recom    = { x = 71, y = 46 },   
     infinity = { x = 71, y = 30 },
 }
@@ -135,7 +135,7 @@ end
 local DoorPositions = {}
 local LastToucher   = {}
 
-local isRunning             = false
+local isRunning           = false
 local isFetchingUIDs      = false
 local pendingUIDs         = {}
 local pendingQueue        = {}
@@ -284,7 +284,7 @@ end
 
 local function clickTile(x, y)
     SendPacketRaw(false, { type=3, state=32, value=32, px=x, py=y, x=x*32, y=y*32 })
-    Sleep(180)
+    Sleep(100) 
 end
 
 local function sendLockEdit(x, y, netID, userID, value)
@@ -294,7 +294,7 @@ local function sendLockEdit(x, y, netID, userID, value)
     if netID and value == 1 then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     pkt = pkt .. ACCESS_FIELD .. userID .. "|" .. value .. "\nis_public|0\nignore_empty|0\n"
     SendPacket(2, pkt)
-    Sleep(150)
+    Sleep(100) 
 end
 
 local function accLock(netID, userID)
@@ -316,7 +316,7 @@ local function accVipDoor(netID, userID, flagType, vipIndex)
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
     if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     SendPacket(2, pkt .. userID .. "|1\n")
-    Sleep(150)
+    Sleep(100) 
 end
 
 local function unaccLock(userID)
@@ -339,7 +339,7 @@ local function unaccVipDoor(userID, flagType, vipIndex)
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
         .. userID .. "|0\n"
     )
-    Sleep(150)
+    Sleep(100) 
 end
 
 local function flagLabels(flagList)
@@ -405,14 +405,14 @@ local function doAcc(target, flagType, vipArg, vipOnly, retryCount)
         end
     end
 
-    Sleep(80)
+    Sleep(20)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Acc ", C.txt, pname, C.dim, " | ", flagInfo)
 
     chat(TAG .. " " .. C.txt .. "Added Room " .. flagInfo .. C.txt .. ": " .. pname)
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
@@ -445,11 +445,11 @@ local function doUnacc(target, flagType, vipArg, vipOnly)
         end
     end
 
-    Sleep(80)
+    Sleep(20)
     isRunning = false
     L(C.warn, "Unacc ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Access Removed: " .. C.txt .. userID)
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
@@ -467,13 +467,13 @@ local function doAddFlag(target, flagType, retryCount)
 
     for _, ftype in ipairs(flagList) do accFlag(netID, resolvedUID, ftype) end
 
-    Sleep(80)
+    Sleep(20)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Flag ", C.txt, pname, C.dim, " | ", flagInfo)
     chat(TAG .. " " .. C.txt .. "Added Flag " .. flagInfo .. C.txt .. ": @" .. pname)
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
@@ -484,11 +484,11 @@ local function doUnflag(target, flagType)
     local flagList = (not flagType or flagType == "all") and FLAG_ORDER or { flagType }
     isRunning = true
     for _, ftype in ipairs(flagList) do unaccFlag(userID, ftype) end
-    Sleep(80)
+    Sleep(20)
     isRunning = false
     L(C.warn, "Unflag ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Flag Removed: " .. C.txt .. userID)
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
@@ -496,14 +496,14 @@ local function bulkLock(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|lock_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. ACCESS_FIELD .. uid .. "|0\n" end
     SendPacket(2, pkt .. "is_public|0\nignore_empty|0\n")
-    Sleep(100)
+    Sleep(100) 
 end
 
 local function bulkVip(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|vip_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. uid .. "|0\n" end
     SendPacket(2, pkt)
-    Sleep(100)
+    Sleep(100) 
 end
 
 local function runBulkUnacc(uids)
@@ -529,22 +529,22 @@ local function doUnaccAllDirect(targetUids)
     end
     isRunning = true
     runBulkUnacc(targetUids)
-    Sleep(80)
+    Sleep(20)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUids, " user")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
 local function fetchLockUIDs(x, y)
     isFetchingUIDs = true
     SendPacketRaw(false, { type=3, state=32, value=32, px=x, py=y, x=x*32, y=y*32 })
-    Sleep(50)
+    Sleep(20)
 
     local timeout = 25
     while isFetchingUIDs and timeout > 0 do
-        Sleep(20)
+        Sleep(10)
         timeout = timeout - 1
     end
     if timeout == 0 then
@@ -552,12 +552,12 @@ local function fetchLockUIDs(x, y)
     end
 
     isFetchingUIDs = false
-    Sleep(20)
+    Sleep(10)
 end
 
 local function doUnaccAll(skipUids)
-    local me    = GetLocal()
-    isRunning   = true
+    local me   = GetLocal()
+    isRunning  = true
     pendingUIDs = {}
 
     fetchLockUIDs(LOCK.x, LOCK.y)
@@ -593,11 +593,11 @@ local function doUnaccAll(skipUids)
 
     runBulkUnacc(targetUIDs)
 
-    Sleep(80)
+    Sleep(20)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUIDs, " user", skipped > 0 and (C.dim .. " (skip " .. skipped .. ")") or "")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
@@ -1022,7 +1022,7 @@ AddHook("OnVariant", "takeaccHook", function(var)
     local rawMsg = tostring(var[2] or "")
     local lmsg   = rawMsg:gsub("`.", ""):gsub("%s+", " "):lower()
 
-    local isTakeacc   = lmsg:find("%.takeacc")   or lmsg:find("!takeacc")
+    local isTakeacc   = lmsg:find("%.takeacc")  or lmsg:find("!takeacc")
     local isCancelacc = lmsg:find("%.cancelacc") or lmsg:find("!cancelacc")
     if not isTakeacc and not isCancelacc then return false end
 
@@ -1297,11 +1297,11 @@ local function runAccAllTarget(target, silentIfNotFound)
     isRunning    = true
 
     accLock(netID, userID)
-    Sleep(80)
+    Sleep(20)
 
     for _, ftype in ipairs(FLAG_ORDER) do
         accFlag(netID, userID, ftype)
-        Sleep(80)
+        Sleep(20)
     end
 
     for _, ftype in ipairs(FLAG_ORDER) do
@@ -1314,18 +1314,18 @@ local function runAccAllTarget(target, silentIfNotFound)
                         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
                     if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
                     SendPacket(2, pkt .. userID .. "|1\n")
-                    Sleep(100)
+                    Sleep(100) 
                 end
             end
         end
-        Sleep(20)
+        Sleep(10)
     end
 
-    Sleep(80)
+    Sleep(20)
     isRunning = false
     L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
     chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
-    Sleep(80)
+    Sleep(20)
     respawnIfNeeded()
 end
 
