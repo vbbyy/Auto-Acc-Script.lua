@@ -15,24 +15,24 @@ local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019 }
 local LOCK = { x = 50, y = 51 }
 
 local FLAGS = {
-    basic    = { x = 29, y = 46 },
-    inti     = { x = 71, y = 46 },
-    recom    = { x = 29, y = 30 },
+    basic    = { x = 29, y = 30 },    
+    inti     = { x = 29, y = 46 },    
+    recom    = { x = 71, y = 46 },   
     infinity = { x = 71, y = 30 },
 }
 
 local VIP_DOORS = {
     basic = {
+        { x=40, y=21 }, { x=40, y=23 }, { x=40, y=25 },
+        { x=40, y=27 }, { x=40, y=29 }, { x=40, y=31 }, { x=40, y=33 },
+    },
+    inti = {
         { x=40, y=37 }, { x=40, y=39 }, { x=40, y=41 },
         { x=40, y=43 }, { x=40, y=45 }, { x=40, y=47 }, { x=40, y=49 },
     },
-    inti = {
+    recom = {
         { x=60, y=37 }, { x=60, y=39 }, { x=60, y=41 },
         { x=60, y=43 }, { x=60, y=45 }, { x=60, y=47 }, { x=60, y=49 },
-    },
-    recom = {
-        { x=40, y=21 }, { x=40, y=23 }, { x=40, y=25 },
-        { x=40, y=27 }, { x=40, y=29 }, { x=40, y=31 }, { x=40, y=33 },
     },
     infinity = {
         { x=60, y=21 }, { x=60, y=23 }, { x=60, y=25 },
@@ -84,7 +84,6 @@ local ROOM_COLOR = {
     infinity = "`5",
 }
 
--- Kurung [ ] selalu hitam (`b)
 local TAG = C.blk .. "[" .. C.hl .. "@anotherv66" .. C.blk .. "]"
 
 local function chatTag(name)
@@ -136,7 +135,7 @@ end
 local DoorPositions = {}
 local LastToucher   = {}
 
-local isRunning           = false
+local isRunning             = false
 local isFetchingUIDs      = false
 local pendingUIDs         = {}
 local pendingQueue        = {}
@@ -253,8 +252,8 @@ end
 
 local function readAndClearCmd()
     local headers = {
-        ["User-Agent"]      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        ["Accept"]          = "text/plain, application/json, */*",
+        ["User-Agent"]    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        ["Accept"]        = "text/plain, application/json, */*",
         ["Accept-Language"] = "en-US,en;q=0.9",
         ["Cache-Control"]   = "no-cache",
         ["Connection"]      = "keep-alive",
@@ -285,7 +284,7 @@ end
 
 local function clickTile(x, y)
     SendPacketRaw(false, { type=3, state=32, value=32, px=x, py=y, x=x*32, y=y*32 })
-    Sleep(350)
+    Sleep(180)
 end
 
 local function sendLockEdit(x, y, netID, userID, value)
@@ -295,7 +294,7 @@ local function sendLockEdit(x, y, netID, userID, value)
     if netID and value == 1 then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     pkt = pkt .. ACCESS_FIELD .. userID .. "|" .. value .. "\nis_public|0\nignore_empty|0\n"
     SendPacket(2, pkt)
-    Sleep(300)
+    Sleep(150)
 end
 
 local function accLock(netID, userID)
@@ -317,7 +316,7 @@ local function accVipDoor(netID, userID, flagType, vipIndex)
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
     if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
     SendPacket(2, pkt .. userID .. "|1\n")
-    Sleep(300)
+    Sleep(150)
 end
 
 local function unaccLock(userID)
@@ -340,7 +339,7 @@ local function unaccVipDoor(userID, flagType, vipIndex)
         .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
         .. userID .. "|0\n"
     )
-    Sleep(300)
+    Sleep(150)
 end
 
 local function flagLabels(flagList)
@@ -406,14 +405,14 @@ local function doAcc(target, flagType, vipArg, vipOnly, retryCount)
         end
     end
 
-    Sleep(120)
+    Sleep(80)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Acc ", C.txt, pname, C.dim, " | ", flagInfo)
 
     chat(TAG .. " " .. C.txt .. "Added Room " .. flagInfo .. C.txt .. ": " .. pname)
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
@@ -446,11 +445,11 @@ local function doUnacc(target, flagType, vipArg, vipOnly)
         end
     end
 
-    Sleep(120)
+    Sleep(80)
     isRunning = false
     L(C.warn, "Unacc ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Access Removed: " .. C.txt .. userID)
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
@@ -468,13 +467,13 @@ local function doAddFlag(target, flagType, retryCount)
 
     for _, ftype in ipairs(flagList) do accFlag(netID, resolvedUID, ftype) end
 
-    Sleep(120)
+    Sleep(80)
     isRunning = false
 
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Flag ", C.txt, pname, C.dim, " | ", flagInfo)
     chat(TAG .. " " .. C.txt .. "Added Flag " .. flagInfo .. C.txt .. ": @" .. pname)
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
@@ -485,11 +484,11 @@ local function doUnflag(target, flagType)
     local flagList = (not flagType or flagType == "all") and FLAG_ORDER or { flagType }
     isRunning = true
     for _, ftype in ipairs(flagList) do unaccFlag(userID, ftype) end
-    Sleep(120)
+    Sleep(80)
     isRunning = false
     L(C.warn, "Unflag ", C.txt, userID)
     chat(TAG .. " " .. C.err .. "Flag Removed: " .. C.txt .. userID)
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
@@ -497,14 +496,14 @@ local function bulkLock(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|lock_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. ACCESS_FIELD .. uid .. "|0\n" end
     SendPacket(2, pkt .. "is_public|0\nignore_empty|0\n")
-    Sleep(160)
+    Sleep(100)
 end
 
 local function bulkVip(uids, x, y)
     local pkt = "action|dialog_return\ndialog_name|vip_edit\nx|" .. x .. "|\ny|" .. y .. "|\n"
     for _, uid in ipairs(uids) do pkt = pkt .. uid .. "|0\n" end
     SendPacket(2, pkt)
-    Sleep(160)
+    Sleep(100)
 end
 
 local function runBulkUnacc(uids)
@@ -530,22 +529,22 @@ local function doUnaccAllDirect(targetUids)
     end
     isRunning = true
     runBulkUnacc(targetUids)
-    Sleep(120)
+    Sleep(80)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUids, " user")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
 local function fetchLockUIDs(x, y)
     isFetchingUIDs = true
     SendPacketRaw(false, { type=3, state=32, value=32, px=x, py=y, x=x*32, y=y*32 })
-    Sleep(80)
+    Sleep(50)
 
     local timeout = 25
     while isFetchingUIDs and timeout > 0 do
-        Sleep(30)
+        Sleep(20)
         timeout = timeout - 1
     end
     if timeout == 0 then
@@ -553,7 +552,7 @@ local function fetchLockUIDs(x, y)
     end
 
     isFetchingUIDs = false
-    Sleep(30)
+    Sleep(20)
 end
 
 local function doUnaccAll(skipUids)
@@ -594,11 +593,11 @@ local function doUnaccAll(skipUids)
 
     runBulkUnacc(targetUIDs)
 
-    Sleep(120)
+    Sleep(80)
     isRunning = false
     L(C.warn, "Unaccall ", C.txt, #targetUIDs, " user", skipped > 0 and (C.dim .. " (skip " .. skipped .. ")") or "")
     chat(TAG .. " " .. C.txt .. "Removed Users")
-    Sleep(120)
+    Sleep(80)
     respawnIfNeeded()
 end
 
@@ -631,13 +630,13 @@ AddHook("OnVariant", "blockLockDialog", function(var)
 end)
 
 local AFK_ENABLE     = true
-local AFK_TICK       = 10     -- detik per scan posisi
-local AFK_REPORT_SEC = 60     -- interval laporan ke bot
-local AFK_HOME_WORLD = ""     -- nama world tetap utk auto-rejoin (mis. "H1TO")
-local AFK_LABEL      = ""     -- label instance/akun staff (opsional)
-local AFK_WATCH      = {}     -- [uid]=true
-local AFK_STATE      = {}     -- [uid]={ sig, lastMove, movedSinceReport }
-local AFK_NETID_MAP  = {}     -- [netid]=uid
+local AFK_TICK       = 10     
+local AFK_REPORT_SEC = 60     
+local AFK_HOME_WORLD = ""     
+local AFK_LABEL      = ""     
+local AFK_WATCH      = {}     
+local AFK_STATE      = {}    
+local AFK_NETID_MAP  = {}     
 local AFK_LAST_SEND  = 0
 local AFK_FIRST_SEND = true
 local AFK_LEFT_SINCE = nil
@@ -849,7 +848,6 @@ RunThread(function()
                 end
             end
 
-            -- Heartbeat lapor walau di EXIT / reconnecting agar status guard tetap ONLINE
             if AFK_FIRST_SEND or (now - AFK_LAST_SEND >= AFK_REPORT_SEC) then
                 AFK_FIRST_SEND = false
                 AFK_LAST_SEND  = now
@@ -1080,6 +1078,14 @@ AddHook("OnVariant", "takeaccHook", function(var)
                 L(C.ok, "cancelacc ", uid, C.dim, " (akses dibatalkan)")
                 whisperTo(netid, TAG .. " " .. C.ok .. "Akses dibatalkan untuk userid " .. uid .. ".")
                 say(C.ok .. "BERHASIL")
+
+                table.insert(pendingQueue, {
+                    action = "unacc",
+                    target = tostring(uid),
+                    flagType = "all",
+                    vipArg = nil,
+                    vipOnly = false
+                })
             else
                 local reason = content:match('"reason"%s*:%s*"([^"]+)"') or "unknown"
                 if reason == "retax_pending" then
@@ -1099,6 +1105,16 @@ AddHook("OnVariant", "takeaccHook", function(var)
             whisperTo(netid, TAG .. " " .. C.ok .. "Acc diproses untuk userid " .. uid
                 .. (room ~= "" and (" (" .. rc .. room .. C.ok .. ")") or "") .. ".")
             say(C.ok .. "BERHASIL" .. (room ~= "" and (" " .. rc .. "[" .. room:upper() .. "]") or ""))
+
+            if room ~= "" then
+                table.insert(pendingQueue, {
+                    action = "acc",
+                    target = tostring(uid),
+                    flagType = room:lower(),
+                    vipArg = nil,
+                    vipOnly = false
+                })
+            end
         end
     end)
 
@@ -1267,6 +1283,52 @@ local function queueCommand(parts)
     return false
 end
 
+local function runAccAllTarget(target, silentIfNotFound)
+    local plr, netID, resolvedUID = fnywys(target)
+    if not resolvedUID then
+        if not silentIfNotFound then
+            L(C.err, "accall: tidak ditemukan: ", target)
+        end
+        return
+    end
+
+    local pname  = plr and cName(plr.name) or ("UID:" .. resolvedUID)
+    local userID = resolvedUID
+    isRunning    = true
+
+    accLock(netID, userID)
+    Sleep(80)
+
+    for _, ftype in ipairs(FLAG_ORDER) do
+        accFlag(netID, userID, ftype)
+        Sleep(80)
+    end
+
+    for _, ftype in ipairs(FLAG_ORDER) do
+        local doors = VIP_DOORS[ftype]
+        if doors then
+            for i = 1, 7 do
+                if doors[i] then
+                    local door = doors[i]
+                    local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
+                        .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
+                    if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
+                    SendPacket(2, pkt .. userID .. "|1\n")
+                    Sleep(100)
+                end
+            end
+        end
+        Sleep(20)
+    end
+
+    Sleep(80)
+    isRunning = false
+    L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
+    chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
+    Sleep(80)
+    respawnIfNeeded()
+end
+
 local function processPendingQueue()
     if #pendingQueue == 0 or isRunning then return end
 
@@ -1309,44 +1371,7 @@ local function processPendingQueue()
         elseif item.action == "accall" then
             table.remove(pendingQueue, i)
             local capturedTarget = item.target
-            local function doAccAllQueued(t)
-                local plr, netID, resolvedUID = fnywys(t)
-                if not resolvedUID then return end
-                local pname  = plr and cName(plr.name) or ("UID:" .. resolvedUID)
-                local userID = resolvedUID
-                isRunning    = true
-
-                accLock(netID, userID)
-                Sleep(120)
-                for _, ftype in ipairs(FLAG_ORDER) do
-                    accFlag(netID, userID, ftype)
-                    Sleep(120)
-                end
-                for _, ftype in ipairs(FLAG_ORDER) do
-                    local doors = VIP_DOORS[ftype]
-                    if doors then
-                        for i = 1, 7 do
-                            if doors[i] then
-                                local door = doors[i]
-                                local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
-                                    .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
-                                if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
-                                SendPacket(2, pkt .. userID .. "|1\n")
-                                Sleep(160)
-                            end
-                        end
-                    end
-                    Sleep(40)
-                end
-
-                Sleep(120)
-                isRunning = false
-                L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
-                chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
-                Sleep(120)
-                respawnIfNeeded()
-            end
-            RunThread(function() doAccAllQueued(capturedTarget) end)
+            RunThread(function() runAccAllTarget(capturedTarget, true) end)
             return
 
         else
@@ -1411,53 +1436,8 @@ local function handleBotCommand(parts)
 
     elseif action == "accall" and parts[2] then
         local target = parts[2]
-        local function doAccAll(t)
-            local plr, netID, resolvedUID = fnywys(t)
-            if not resolvedUID then
-                L(C.err, "accall: tidak ditemukan: ", t)
-                return
-            end
-
-            local pname  = plr and cName(plr.name) or ("UID:" .. resolvedUID)
-            local userID = resolvedUID
-            isRunning    = true
-
-            accLock(netID, userID)
-            Sleep(120)
-
-            for _, ftype in ipairs(FLAG_ORDER) do
-                accFlag(netID, userID, ftype)
-                Sleep(120)
-            end
-
-            for _, ftype in ipairs(FLAG_ORDER) do
-                local doors = VIP_DOORS[ftype]
-                if doors then
-                    for i = 1, 7 do
-                        if doors[i] then
-                            local door = doors[i]
-                            local pkt = "action|dialog_return\ndialog_name|vip_edit\n"
-                                .. "x|" .. door.x .. "|\ny|" .. door.y .. "|\n"
-                            if netID then pkt = pkt .. "targetNetID|" .. netID .. "\n" end
-                            SendPacket(2, pkt .. userID .. "|1\n")
-                            Sleep(160)
-                        end
-                    end
-                end
-                Sleep(40)
-            end
-
-            Sleep(120)
-            isRunning = false
-
-            L(C.ok, "AccAll ", C.txt, pname, C.dim, " | ALL ROOM")
-            chat(TAG .. " " .. C.txt .. "Added Room " .. "`^ALL ROOM`w" .. C.txt .. ": " .. pname)
-            Sleep(120)
-            respawnIfNeeded()
-        end
-
         if isPlayerInWorld(target) then
-            RunThread(function() doAccAll(target) end)
+            RunThread(function() runAccAllTarget(target, false) end)
         else
             L(C.dim, target, " belum di world, antri (accall)")
             table.insert(pendingQueue, {
@@ -1608,9 +1588,9 @@ L(C.ok, "Loaded")
 
 local SPAMMER_LIST = {
     { label = "infinity", color = ROOM_COLOR.infinity, x = 71, y = 30, spam_text = "`5MAX 5 BLACK" },
-    { label = "recom",    color = ROOM_COLOR.recom,    x = 29, y = 30, spam_text = "`8MAX 1 BLACK" },
-    { label = "inti",     color = ROOM_COLOR.inti,     x = 71, y = 38, spam_text = "`4MAX 25 BGL" },
-    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 38, spam_text = "`2MAX 7 BGL" },
+    { label = "recom",    color = ROOM_COLOR.recom,    x = 71, y = 38, spam_text = "`8MAX 1 BLACK" },
+    { label = "inti",     color = ROOM_COLOR.inti,     x = 29, y = 38, spam_text = "`4MAX 25 BGL" },
+    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`2MAX 5 BGL" },
     { label = "owner",    color = C.hl,                x = 50, y = 31, spam_text = "`#BUY `2ACC`w/`4PROBLEM `8CONTACT ADMIN ON BOARD ^^^" },
 
     { label = "slot-6",   color = C.dim, x = 51, y = 17, spam_text = nil },
@@ -1620,10 +1600,39 @@ local SPAMMER_LIST = {
     { label = "slot-10",  color = C.dim, x = 55, y = 17, spam_text = nil },
 }
 
+local SPAMMER_NETID = {}   
+
+local function slotAtTile(x, y)
+    for _, slot in ipairs(SPAMMER_LIST) do
+        if slot.x == x and slot.y == y then return slot end
+    end
+    return nil
+end
+
+local function slotFromNetID(netid)
+    local id = tonumber(netid)
+    if not id then return nil end
+    return SPAMMER_NETID[id]
+end
+
+local function slotNearLocal()
+    local p = GetLocal()
+    if not p or not p.pos then return nil end
+    local px, py = math.floor(p.pos.x / 32), math.floor(p.pos.y / 32)
+    local best, bestDist
+    for _, slot in ipairs(SPAMMER_LIST) do
+        local d = math.abs(slot.x - px) + math.abs(slot.y - py)
+        if d <= 2 and (not bestDist or d < bestDist) then best, bestDist = slot, d end
+    end
+    return best
+end
+
 local SPAMMER_ITEM_ID = 16550
 
-_G.SpammerSlaveDialogOpened = false
-_G.CurrentSpamText = nil
+local SP = { busy = false, mode = nil, opened = false, current = nil, dlgNet = nil }
+
+local SPAMMER_WRITTEN = {}   
+local SPAMMER_CHECKED = {}   
 
 local function slotLog(slot, color, msg)
     local rawText = slot.label:upper() .. " " .. color .. msg
@@ -1722,26 +1731,44 @@ local function getSpammerItemID()
     return 16550
 end
 
+local function parseSpamText(dlg)
+    local t = dlg:match("spam_text|[^|\n]*|([^|\n]*)|")
+    if not t then return nil end
+    return (t:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
 AddHook("OnVariant", "SpammerSlaveHandler", function(var)
-    if var[0] == "OnDialogRequest" then
-        local dlg = tostring(var[1] or "")
-        if dlg:find("anpc_edit") then
-            local netid = dlg:match("netID|(%d+)") or dlg:match("netid|(%d+)")
-            if netid and _G.CurrentSpamText then
-                _G.SpammerSlaveDialogOpened = true
+    if var[0] ~= "OnDialogRequest" then return false end
 
-                RunThread(function()
-                    local p1 = "action|dialog_return\ndialog_name|anpc_edit\nnetID|" .. netid .. "\nspam_text|" .. _G.CurrentSpamText .. "\nbuttonClicked|Update\n"
-                    local p2 = "action|dialog_return\ndialog_name|anpc_edit\nnetID|" .. netid .. "|\nspam_text|" .. _G.CurrentSpamText .. "\nbuttonClicked|Update\n"
+    local dlg = tostring(var[1] or "")
+    if not dlg:find("anpc_edit", 1, true) then return false end
+    if not SP.busy then return false end
 
-                    SendPacket(2, p1)
-                    Sleep(200)
-                    SendPacket(2, p2)
-                end)
-            end
-            return true
-        end
+    if SP.mode == "edit" then
+        SP.dlgNet  = dlg:match("netID|(%d+)") or dlg:match("netid|(%d+)")
+        SP.current = parseSpamText(dlg)
+        SP.opened  = true
     end
+
+    return true
+end)
+
+AddHook("OnSendPacket", "SpammerTextEditHook", function(_, pkt)
+    if SP.busy then return false end
+    pkt = tostring(pkt or "")
+    if not pkt:find("dialog_name|anpc_edit", 1, true) then return false end
+    if not pkt:find("spam_text|", 1, true) then return false end
+
+    local newText = pkt:match("spam_text|(.-)\n")
+    if not newText or newText == "" then return false end
+
+    local netid = pkt:match("netID|(%d+)") or pkt:match("netid|(%d+)")
+    local slot  = slotFromNetID(netid) or slotNearLocal()
+    if not slot then return false end
+    if slot.spam_text == newText then return false end
+
+    slot.spam_text = newText
+    L(C.ok, "Spam text ", roomTag(slot.label), " diubah dari wrench: ", C.txt, newText)
     return false
 end)
 
@@ -1760,6 +1787,8 @@ local function getSpammerNetIDFromPlayerList(targetX, targetY)
 
                 if (px == targetX and py == targetY) or isSpammer then
                     if px == targetX and (py == targetY or py == targetY - 1 or py == targetY + 1) then
+                        local slot = slotAtTile(targetX, targetY)
+                        if slot and p.netid then SPAMMER_NETID[p.netid] = slot end
                         return p.netid
                     end
                 end
@@ -1795,15 +1824,20 @@ local function IsAllowedOwner(ownerName)
 end
 
 local function KillSpammer(netid)
+    SP.busy = true
+    SP.mode = "kill"
     SendPacket(2, "action|wrench\n|netid|" .. netid .. "\n")
-    Sleep(300)
+    Sleep(200)
     SendPacket(2, "action|dialog_return\ndialog_name|anpc_edit\nnetID|" .. netid .. "|\nbuttonClicked|kill\n")
+    Sleep(200)
+    SP.busy = false
+    SP.mode = nil
 end
 
 local function DestroySpammer(netid)
     for _ = 1, 3 do
         KillSpammer(netid)
-        Sleep(400)
+        Sleep(300)
 
         local stillThere = false
         for _, p in pairs(GetPlayerList() or {}) do
@@ -1842,11 +1876,99 @@ local function AutoKickForeignSpammers()
     return kicked
 end
 
-local function processSpammerSlave(pos)
-    if not moveTo(pos.x, pos.y + 1, pos) then
-        return false
+local function editSpammerText(netid, slot)
+    local want = slot.spam_text
+    if want == nil or want == "" then return "same" end
+
+    SP.busy    = true
+    SP.mode    = "edit"
+    SP.opened  = false
+    SP.current = nil
+    SP.dlgNet  = nil
+
+    for _ = 1, 3 do
+        SendPacket(2, "action|wrench\n|netid|" .. netid)
+        for _ = 1, 6 do
+            if SP.opened then break end
+            Sleep(100)
+        end
+        if SP.opened then break end
     end
-    Sleep(200)
+
+    local result = "fail"
+    if SP.opened then
+        local cur = SP.current
+        local differs
+        if cur ~= nil then
+            differs = (cur ~= want)
+        else
+            differs = (SPAMMER_WRITTEN[netid] ~= want)
+        end
+
+        if differs then
+            local nid = SP.dlgNet or tostring(netid)
+            local p1 = "action|dialog_return\ndialog_name|anpc_edit\nnetID|" .. nid .. "\nspam_text|" .. want .. "\nbuttonClicked|Update\n"
+            local p2 = "action|dialog_return\ndialog_name|anpc_edit\nnetID|" .. nid .. "|\nspam_text|" .. want .. "\nbuttonClicked|Update\n"
+            SendPacket(2, p1)
+            Sleep(150)
+            SendPacket(2, p2)
+            Sleep(200)
+            SPAMMER_WRITTEN[netid] = want
+            result = "updated"
+        else
+            SPAMMER_WRITTEN[netid] = want
+            result = "same"
+        end
+    end
+
+    SP.busy = false
+    SP.mode = nil
+    return result
+end
+
+local function spammerNeedsCheck(slot, netid)
+    if slot.spam_text == nil or slot.spam_text == "" then return false end
+    local c = SPAMMER_CHECKED[netid]
+    if not c then return true end
+    if c.text ~= slot.spam_text then return true end
+    return false 
+end
+
+local function checkSpammerText(netid, slot)
+    local r = editSpammerText(netid, slot)
+    if r == "fail" then
+        SPAMMER_CHECKED[netid] = nil
+        slotLog(slot, C.err, "gagal: dialog tidak muncul")
+    else
+        SPAMMER_CHECKED[netid] = { text = slot.spam_text, at = afkEpoch() }
+        if r == "updated" then slotLog(slot, C.ok, "Text diperbarui") end
+    end
+    return r
+end
+
+AddHook("OnVariant", "SpammerTalkAutoDetect", function(var)
+    if var[0] ~= "OnTalkBubble" then return false end
+    
+    local netid = tonumber(var[1]) or -1
+    local text = tostring(var[2] or "")
+    
+    local slot = slotFromNetID(netid)
+    if slot and slot.spam_text and slot.spam_text ~= "" then
+        if not text:find(slot.spam_text, 1, true) then
+            if SPAMMER_CHECKED[netid] then
+                SPAMMER_CHECKED[netid] = nil
+                slotLog(slot, C.warn, "Teks terdeteksi berbeda, otomatis memperbaiki...")
+            end
+        end
+    end
+    return false
+end)
+
+local function placeSpammer(pos)
+    if not moveTo(pos.x, pos.y + 1, pos) then
+        return nil
+    end
+    Sleep(150)
 
     local spammerNetID = getSpammerNetIDFromPlayerList(pos.x, pos.y)
 
@@ -1856,7 +1978,7 @@ local function processSpammerSlave(pos)
         local py_pos = (p and p.pos and p.pos.y) or ((pos.y + 1) * 32)
 
         SetItemSelected(SPAMMER_ITEM_ID)
-        Sleep(250)
+        Sleep(150)
 
         SendPacketRaw(false, {
             type  = 3,
@@ -1865,8 +1987,8 @@ local function processSpammerSlave(pos)
             x     = px_pos, y = py_pos,
         })
 
-        for _ = 1, 10 do
-            Sleep(500)
+        for _ = 1, 8 do
+            Sleep(300)
             spammerNetID = getSpammerNetIDFromPlayerList(pos.x, pos.y)
             if spammerNetID then break end
         end
@@ -1874,33 +1996,26 @@ local function processSpammerSlave(pos)
 
     if not spammerNetID then
         slotLog(pos, C.err, "gagal: tidak terpasang")
-        return false
+        return nil
     end
+
+    return spammerNetID
+end
+
+local function processSpammerSlave(pos)
+    local netid = placeSpammer(pos)
+    if not netid then return false end
 
     if pos.spam_text == nil or pos.spam_text == "" then
         slotLog(pos, C.ok, "terpasang")
         return true
     end
 
-    _G.CurrentSpamText = pos.spam_text
-    _G.SpammerSlaveDialogOpened = false
-
-    for _ = 1, 5 do
-        if _G.SpammerSlaveDialogOpened then break end
-        SendPacket(2, "action|wrench\n|netid|" .. spammerNetID)
-        for _ = 1, 6 do
-            if _G.SpammerSlaveDialogOpened then break end
-            Sleep(250)
-        end
-    end
-
-    if not _G.SpammerSlaveDialogOpened then
-        slotLog(pos, C.err, "gagal: dialog tidak muncul")
-        return false
-    end
+    local r = checkSpammerText(netid, pos)
+    if r == "fail" then return false end
 
     slotLog(pos, C.ok, "terpasang + teks")
-    Sleep(500)
+    Sleep(300)
     return true
 end
 
@@ -1917,38 +2032,42 @@ RunThread(function()
     while true do
         local world = GetWorld()
         if world and world.name and world.name ~= "" and world.name ~= "EXIT" then
-            if AutoKickForeignSpammers() > 0 then Sleep(500) end
+            if AutoKickForeignSpammers() > 0 then Sleep(300) end
 
-            local anyMissing = false
+            local missing = {}
             for _, slot in ipairs(SPAMMER_LIST) do
-                if not getSpammerNetIDFromPlayerList(slot.x, slot.y) then
-                    anyMissing = true
-                    break
+                local netid = getSpammerNetIDFromPlayerList(slot.x, slot.y)
+                if netid then
+                    if spammerNeedsCheck(slot, netid) then
+                        checkSpammerText(netid, slot)
+                    end
+                else
+                    missing[#missing + 1] = slot
                 end
             end
 
-            local needModFly = false
-            if anyMissing then
+            if #missing > 0 then
+                local needModFly = false
                 local currentModFly = GetValue("[C] Modfly")
                 if currentModFly == false or currentModFly == nil then
                     ChangeValue("[C] Modfly", true)
                     needModFly = true
-                    Sleep(300)
+                    Sleep(200)
                 end
-            end
 
-            for _, slot in ipairs(SPAMMER_LIST) do
-                if not getSpammerNetIDFromPlayerList(slot.x, slot.y) then
-                    processSpammerSlave(slot)
+                for _, slot in ipairs(missing) do
+                    if not getSpammerNetIDFromPlayerList(slot.x, slot.y) then
+                        processSpammerSlave(slot)
+                    end
                 end
-            end
 
-            if anyMissing and originX and originY then
-                moveTo(originX, originY)
-                Sleep(200)
-                if needModFly then ChangeValue("[C] Modfly", false) end
+                if originX and originY then
+                    moveTo(originX, originY)
+                    Sleep(150)
+                    if needModFly then ChangeValue("[C] Modfly", false) end
+                end
             end
         end
-        Sleep(5000)
+        Sleep(3000)
     end
 end)
