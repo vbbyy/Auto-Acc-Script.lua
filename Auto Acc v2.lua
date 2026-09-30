@@ -10,6 +10,8 @@ local CMD_HOST          = normalizeUrl("46.8.226.128:3000")
 local CMD_POLL_INTERVAL = 300
 local autoRespawn       = false
 
+local WAIT_PLAYER_SEC   = 180
+
 local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019, 366859 }
 
 local LOCK = { x = 50, y = 51 }
@@ -41,22 +43,17 @@ local VIP_DOORS = {
 }
 
 local DBOX_WEBHOOK = "https://ptb.discord.com/api/webhooks/1505406932377145455/bmdWmNNJhEkkpuTn064Y_dQg5Lkw9Hit_XoGArpv0xkfO07wnvCGYoIBDpcHIPD5JAHz"
-
-local VIP_BREAK_WEBHOOK    = "https://discord.com/api/webhooks/1192458938176778300/CQ-qyPvwRhdxiI5j59pEO1fVsawnY4Jjhs3oDa0hMPOz8KSGHpmCasaN0s0t_Pfc1exQ"
-local VIP_BREAK_DISCORD_ID = "1176411157242839132"
-local VIP_BREAK_ENABLE_TAG = true
-local VIP_DOOR_ID          = 3798
-
 local MODAL_REQ = { basic = 15, infinity = 200, inti = 80, recom = 150, all = 0 }
 local ID_BGL  = 7188
 local ID_BBGL = 11550
+local VIP_DOOR_ID          = 3798
 
 local FLAG_ORDER = { "basic", "inti", "recom", "infinity" }
 
 local VIP_AUTO = {
-    basic    = { 1, 2, 3, 4 },
+    basic    = { 4, 5, 6, 7 },
     inti     = { 1, 2, 3, 4 },
-    recom    = { 4, 5, 6, 7 },
+    recom    = { 1, 2, 3, 4 },
     infinity = { 4, 5, 6, 7 },
 }
 
@@ -140,6 +137,15 @@ local isFetchingUIDs      = false
 local pendingUIDs         = {}
 local pendingQueue        = {}
 local pendingBalanceCheck = nil
+local recentAcc = {}
+local dedupeClock = 0
+
+RunThread(function()
+    while true do
+        Sleep(1000)
+        dedupeClock = dedupeClock + 1
+    end
+end)
 local pollBlocked         = false
 
 local WHITELIST = {}
@@ -203,15 +209,16 @@ local function parseVipInput(raw)
 end
 
 local function fnywys(target)
-    local list        = GetPlayerList()
+    local list        = GetPlayerList() or {}
     local cleanTarget = cleanTargetStr(target)
+    if cleanTarget == "" then return nil, nil, nil end
 
     if cleanTarget:match("^%d+$") then
         local numId = tonumber(cleanTarget)
         for _, p in pairs(list) do
             if p.userid == numId then return p, p.netid, tostring(p.userid) end
         end
-        return nil, nil, tostring(numId)
+        return nil, nil, nil
     end
 
     local lower = cleanTarget:lower()
@@ -224,29 +231,21 @@ local function fnywys(target)
 end
 
 local function isPlayerInWorld(target)
-    local cleanTarget = cleanTargetStr(target)
-    local list        = GetPlayerList()
-
-    if cleanTarget:match("^%d+$") then
-        local numId = tonumber(cleanTarget)
-        for _, p in pairs(list) do
-            if p.userid == numId then return true end
-        end
-        return false
-    end
-
-    local lower = cleanTarget:lower()
-    for _, p in pairs(list) do
-        if normName(p.name):find(lower, 1, true) then return true end
-    end
-    return false
+    local _, _, uid = fnywys(target)
+    return uid ~= nil
 end
 
 local function respawnIfNeeded()
     if autoRespawn then SendPacket(2, "action|respawn\n") end
 end
 
+local CHAT_MAX = 120
+
 local function chat(text)
+    text = tostring(text)
+    if #text > CHAT_MAX then
+        text = text:sub(1, CHAT_MAX):gsub("`$", "")
+    end
     SendPacket(2, "action|input\ntext|" .. text)
 end
 
@@ -348,16 +347,19 @@ local function flagLabels(flagList)
     return table.concat(out, " ") .. " "
 end
 
-local MAX_RESOLVE_RETRY = 5
+local function roomLabel(flagList)
+    if #flagList >= #FLAG_ORDER then return "`^ALL ROOM`w " end
+    return flagLabels(flagList)
+end
 
-local function requeueOrFail(action, target, flagType, vipArg, vipOnly, retryCount)
-    retryCount = retryCount or 0
-    if retryCount < MAX_RESOLVE_RETRY then
-        L(C.dim, action, " ", target, " belum kebaca, retry ", retryCount + 1, "/", MAX_RESOLVE_RETRY)
+local function requeueOrFail(action, target, flagType, vipArg, vipOnly, since)
+    since = since or dedupeClock
+    if dedupeClock - since <= WAIT_PLAYER_SEC then
+        L(C.dim, action, " ", target, " Belum di world, menunggu")
         table.insert(pendingQueue, {
             action = action, target = target,
             flagType = flagType, vipArg = vipArg, vipOnly = vipOnly,
-            retryCount = retryCount + 1,
+            since = since, warned = true,
         })
         return true
     end
@@ -365,11 +367,10 @@ local function requeueOrFail(action, target, flagType, vipArg, vipOnly, retryCou
     return false
 end
 
-local function doAcc(target, flagType, vipArg, vipOnly, retryCount)
-    retryCount = retryCount or 0
+local function doAcc(target, flagType, vipArg, vipOnly, since)
     local plr, netID, resolvedUID = fnywys(target)
     if not resolvedUID then
-        requeueOrFail("acc", target, flagType, vipArg, vipOnly, retryCount)
+        requeueOrFail("acc", target, flagType, vipArg, vipOnly, since)
         return
     end
 
@@ -411,7 +412,7 @@ local function doAcc(target, flagType, vipArg, vipOnly, retryCount)
     local flagInfo = flagLabels(flagList)
     L(C.ok, "Acc ", C.txt, pname, C.dim, " | ", flagInfo)
 
-    chat(TAG .. " " .. C.txt .. "Added Room " .. flagInfo .. C.txt .. ": " .. pname)
+    chat(TAG .. " " .. C.txt .. "Added Room " .. roomLabel(flagList) .. C.txt .. ": " .. pname)
     Sleep(20)
     respawnIfNeeded()
 end
@@ -430,6 +431,10 @@ end
 local function doUnacc(target, flagType, vipArg, vipOnly)
     local userID = resolveUserID(target)
     if not userID then return end
+
+    for k in pairs(recentAcc) do
+        if k:find("^" .. userID .. "|") then recentAcc[k] = nil end
+    end
 
     isRunning      = true
     local flagList = (not flagType or flagType == "all") and FLAG_ORDER or { flagType }
@@ -453,11 +458,10 @@ local function doUnacc(target, flagType, vipArg, vipOnly)
     respawnIfNeeded()
 end
 
-local function doAddFlag(target, flagType, retryCount)
-    retryCount = retryCount or 0
+local function doAddFlag(target, flagType, since)
     local plr, netID, resolvedUID = fnywys(target)
     if not resolvedUID then
-        requeueOrFail("addflag", target, flagType, nil, nil, retryCount)
+        requeueOrFail("addflag", target, flagType, nil, nil, since)
         return
     end
 
@@ -714,11 +718,11 @@ local function afkLoadWatch()
 end
 
 local function afkLog(uid)
-    L(C.dim, "AFK ", uid, " keluar")
+    L(C.dim, "AFK ", uid, " Keluar")
 end
 
 local function afkLogJoin(uid, name)
-    L(C.ok, "AFK ", uid, C.dim, " masuk ", C.txt, afkCleanName(name))
+    L(C.ok, "AFK ", uid, C.dim, " Masuk ", C.txt, afkCleanName(name))
 end
 
 local function afkScan()
@@ -835,6 +839,7 @@ RunThread(function()
         end
 
         local now = afkEpoch()
+        local world = (GetWorld() and GetWorld().name) or ""
 
         if world == "" or world == "EXIT" then
             afkFlushLeft("left_world")
@@ -1015,6 +1020,47 @@ local function whisperTo(netid, text)
     if not ok then L(C.err, "Whisper gagal: ", err) end
 end
 
+local function enqueueAcc(item)
+    local _, _, ruid = fnywys(item.target)
+    local uid  = ruid or tostring(item.target)
+    local room = tostring(item.flagType or "all")
+    local key  = uid .. "|" .. room
+    local now  = dedupeClock
+
+    for k, t in pairs(recentAcc) do
+        if now - t > 60 then recentAcc[k] = nil end
+    end
+
+    local dup = false
+    if recentAcc[key] and now - recentAcc[key] < 10 then dup = true end
+
+    if not dup then
+        for _, q in ipairs(pendingQueue) do
+            if q.action == "acc" and tostring(q.target) == uid and tostring(q.flagType or "all") == room then
+                dup = true
+                break
+            end
+        end
+    end
+
+    if not dup and pendingBalanceCheck
+        and tostring(pendingBalanceCheck.uid) == uid
+        and pendingBalanceCheck.room == room
+        and now - (pendingBalanceCheck.time or 0) <= 10 then
+        dup = true
+    end
+
+    if dup then
+        L(C.dim, "acc ", uid, " ", room, " duplikat, dilewati")
+        return false
+    end
+
+    recentAcc[key] = now
+    item.since = item.since or now
+    table.insert(pendingQueue, item)
+    return true
+end
+
 AddHook("OnVariant", "takeaccHook", function(var)
     if var[0] ~= "OnTalkBubble" then return false end
 
@@ -1080,13 +1126,17 @@ AddHook("OnVariant", "takeaccHook", function(var)
                 whisperTo(netid, TAG .. " " .. C.ok .. "Akses dibatalkan untuk userid " .. uid .. ".")
                 say(C.ok .. "BERHASIL")
 
-                table.insert(pendingQueue, {
-                    action = "unacc",
-                    target = tostring(uid),
-                    flagType = "all",
-                    vipArg = nil,
-                    vipOnly = false
-                })
+                if not isRunning then
+                    RunThread(function() doUnacc(tostring(uid), "all", nil, false) end)
+                else
+                    table.insert(pendingQueue, {
+                        action = "unacc",
+                        target = tostring(uid),
+                        flagType = "all",
+                        vipArg = nil,
+                        vipOnly = false
+                    })
+                end
             else
                 local reason = content:match('"reason"%s*:%s*"([^"]+)"') or "unknown"
                 if reason == "retax_pending" then
@@ -1125,7 +1175,7 @@ AddHook("OnVariant", "takeaccHook", function(var)
             say(C.ok .. "BERHASIL" .. (room ~= "" and (" " .. rc .. "[" .. room:upper() .. "]") or ""))
 
             if room ~= "" then
-                table.insert(pendingQueue, {
+                enqueueAcc({
                     action = "acc",
                     target = tostring(uid),
                     flagType = room:lower(),
@@ -1139,9 +1189,18 @@ AddHook("OnVariant", "takeaccHook", function(var)
     return false
 end)
 
-local function sendVipBreakWebhook(playerName, worldName, x, y)
-    if VIP_BREAK_WEBHOOK == "" then return end
 
+AddHook("OnProcessTankUpdate", "VipDoorHook", function(varss)
+    if varss.px and varss.py and varss.netid and varss.netid > 0 then
+        local key = varss.px .. "," .. varss.py
+        if DoorPositions[key] then
+            LastToucher[key] = varss.netid
+        end
+    end
+    return false
+end)
+
+local function sendVipBreakNotification(playerName, worldName, x, y)
     local roomName = "Tidak Dikenal"
     for room, doors in pairs(VIP_DOORS) do
         for _, door in ipairs(doors) do
@@ -1161,46 +1220,24 @@ local function sendVipBreakWebhook(playerName, worldName, x, y)
 
     local waPayload = [[{"message":"]] .. jsonEscape(waMsg) .. [["}]]
 
-    local tag = (VIP_BREAK_ENABLE_TAG and VIP_BREAK_DISCORD_ID ~= "") and ("<@" .. VIP_BREAK_DISCORD_ID .. "> ") or ""
-    local data = string.format([[
-    {
-        "content": "%s",
-        "embeds": [{
-            "title": "<a:warn:1471371025043423316> VIP DOOR BREAK DETECTED",
-            "description": "VIP Door (id %d) terdeteksi hancur di Room %s!",
-            "color": 16711680,
-            "fields": [
-                {"name": "<:player:1471371280786788405> Nickname", "value": "`%s`", "inline": true},
-                {"name": "<a:world:1474160169817477173> World", "value": "`%s`", "inline": true},
-                {"name": "Room", "value": "`%s`", "inline": true},
-                {"name": "Posisi", "value": "`%d, %d`", "inline": true}
-            ],
-            "footer": {"text": "Anti VIP Door Break System"}
-        }]
-    }
-    ]], tag, VIP_DOOR_ID, roomName, jsonEscape(playerName), jsonEscape(worldName), roomName, x, y)
-
     RunThread(function()
-        pcall(function()
-            MakeRequest(VIP_BREAK_WEBHOOK, "POST", { ["Content-Type"] = "application/json" }, data)
-        end)
         pcall(function()
             MakeRequest(CMD_HOST .. "/notify", "POST", { ["Content-Type"] = "application/json" }, waPayload, 5000)
         end)
     end)
 end
 
-AddHook("OnProcessTankUpdatePacket", "VipDoorHook", function(varss)
-    if varss.px and varss.py then
-        local key = varss.px .. "," .. varss.py
-        if DoorPositions[key] and varss.netid then
-            LastToucher[key] = varss.netid
-        end
-    end
-    return false
-end)
+local notifSeen = {}
 
 local function postNotify(endpoint, uid, msg)
+    local key = endpoint .. "|" .. tostring(uid) .. "|" .. msg
+    local now = dedupeClock
+    if notifSeen[key] and now - notifSeen[key] < 10 then return end
+    notifSeen[key] = now
+    for k, t in pairs(notifSeen) do
+        if now - t > 60 then notifSeen[k] = nil end
+    end
+
     local payload = [[{"uid":"]] .. jsonEscape(uid) .. [[","message":"]] .. jsonEscape(msg) .. [["}]]
     RunThread(function()
         local ok, err = pcall(function()
@@ -1212,6 +1249,12 @@ end
 
 AddHook("OnVariant", "balanceCheckHook", function(var)
     if var[0] ~= "OnDialogRequest" or not pendingBalanceCheck then return false end
+
+    if dedupeClock - (pendingBalanceCheck.time or 0) > 10 then
+        L(C.err, "Cek modal timeout ", tostring(pendingBalanceCheck.uid))
+        pendingBalanceCheck = nil
+        return false
+    end
 
     local dialog      = var[1]
     local cleanDialog = dialog:gsub("`.", "")
@@ -1233,13 +1276,14 @@ AddHook("OnVariant", "balanceCheckHook", function(var)
         local t_room    = pendingBalanceCheck.room
         local t_vipArg  = pendingBalanceCheck.vipArg
         local t_vipOnly = pendingBalanceCheck.vipOnly
+        local t_since   = pendingBalanceCheck.since
         local req       = MODAL_REQ[t_room] or 0
         local rtag      = roomTag(t_room)
 
         if totalBgl >= req then
             L(C.ok, "Modal ", C.txt, t_uid, C.dim, " | ", C.ok, totalBgl, "/", req, " BGL")
             chat(C.ok .. "Modal cukup! " .. C.txt .. "(" .. totalBgl .. " / " .. req .. " BGL)")
-            RunThread(function() doAcc(t_uid, t_room, t_vipArg, t_vipOnly) end)
+            RunThread(function() doAcc(t_uid, t_room, t_vipArg, t_vipOnly, t_since) end)
 
             postNotify("/notify", t_uid,
                 "✅ *AKSES DIBERIKAN*\n"
@@ -1265,41 +1309,6 @@ AddHook("OnVariant", "balanceCheckHook", function(var)
 
     return false
 end)
-
-local function queueCommand(parts)
-    local act = parts[1]:lower()
-
-    if act == "acc" and parts[2] then
-        table.insert(pendingQueue, {
-            action = "acc", target = parts[2],
-            flagType = parts[3] and parts[3]:lower() or "all",
-            vipArg = nil, vipOnly = false,
-        })
-        return true
-
-    elseif act == "unacc" and parts[2] then
-        table.insert(pendingQueue, {
-            action   = "unacc",
-            target   = parts[2],
-            flagType = parts[3] and parts[3]:lower() or nil,
-            vipArg   = parseVipInput(parts[4] or ""),
-            vipOnly  = false,
-        })
-        return true
-
-    elseif act == "unaccall" then
-        local uidsStr = parts[2] and parts[2]:match("^uids:(.+)$")
-        local skipStr = parts[2] and parts[2]:match("^skip:(.+)$")
-        if uidsStr then
-            table.insert(pendingQueue, { action = "unaccall_direct", targetUids = parseUidList(uidsStr) })
-        else
-            table.insert(pendingQueue, { action = "unaccall", skipUids = skipStr and parseUidList(skipStr) or nil })
-        end
-        return true
-    end
-
-    return false
-end
 
 local function runAccAllTarget(target, silentIfNotFound)
     local plr, netID, resolvedUID = fnywys(target)
@@ -1347,14 +1356,49 @@ local function runAccAllTarget(target, silentIfNotFound)
     respawnIfNeeded()
 end
 
+local WAIT_ACTIONS = { acc = true, addflag = true, accall = true }
+
 local function processPendingQueue()
     if #pendingQueue == 0 or isRunning then return end
+
+    if pendingBalanceCheck then
+        if dedupeClock - (pendingBalanceCheck.time or 0) > 10 then
+            L(C.err, "Cek modal timeout ", tostring(pendingBalanceCheck.uid))
+            pendingBalanceCheck = nil
+        else
+            return
+        end
+    end
 
     local i = 1
     while i <= #pendingQueue do
         local item = pendingQueue[i]
 
-        if item.action == "unaccall_direct" then
+        local state, plr, netid, resolvedUID = "go", nil, nil, nil
+        if WAIT_ACTIONS[item.action] then
+            item.since = item.since or dedupeClock
+            plr, netid, resolvedUID = fnywys(item.target)
+            if not resolvedUID then
+                if dedupeClock - item.since > WAIT_PLAYER_SEC then
+                    state = "drop"
+                else
+                    state = "wait"
+                end
+            end
+        end
+
+        if state == "drop" then
+            table.remove(pendingQueue, i)
+            L(C.err, "Dibatalkan, ", item.target, " Tidak masuk world dalam ", WAIT_PLAYER_SEC, "s")
+
+        elseif state == "wait" then
+            if not item.warned then
+                item.warned = true
+                L(C.dim, item.target, " Belum di world, menunggu (", item.action, ")")
+            end
+            i = i + 1
+
+        elseif item.action == "unaccall_direct" then
             table.remove(pendingQueue, i)
             RunThread(function() doUnaccAllDirect(item.targetUids) end)
             return
@@ -1371,25 +1415,28 @@ local function processPendingQueue()
 
         elseif item.action == "acc" then
             table.remove(pendingQueue, i)
-            local plr, netid, resolvedUID = fnywys(item.target)
+
             local reqModal = MODAL_REQ[item.flagType]
-            if netid and reqModal and reqModal > 0 then
-                pendingBalanceCheck = { uid = resolvedUID or item.target, room = item.flagType, vipArg = item.vipArg, vipOnly = item.vipOnly, time = os.time() }
+            if netid and reqModal and reqModal > 0 and not item.vipOnly then
+                pendingBalanceCheck = {
+                    uid = resolvedUID, room = item.flagType,
+                    vipArg = item.vipArg, vipOnly = item.vipOnly,
+                    time = dedupeClock, since = item.since,
+                }
                 SendPacket(2, "action|dialog_return\ndialog_name|popup\nnetID|" .. netid .. "|\nbuttonClicked|viewinv")
             else
-                RunThread(function() doAcc(item.target, item.flagType, item.vipArg, item.vipOnly, item.retryCount) end)
+                RunThread(function() doAcc(resolvedUID, item.flagType, item.vipArg, item.vipOnly, item.since) end)
             end
             return
 
         elseif item.action == "addflag" then
             table.remove(pendingQueue, i)
-            RunThread(function() doAddFlag(item.target, item.flagType, item.retryCount) end)
+            RunThread(function() doAddFlag(resolvedUID, item.flagType, item.since) end)
             return
 
         elseif item.action == "accall" then
             table.remove(pendingQueue, i)
-            local capturedTarget = item.target
-            RunThread(function() runAccAllTarget(capturedTarget, true) end)
+            RunThread(function() runAccAllTarget(resolvedUID, true) end)
             return
 
         else
@@ -1399,18 +1446,50 @@ local function processPendingQueue()
 end
 
 local function handleBotCommand(parts)
-    if queueCommand(parts) then return end
     local action = parts[1]:lower()
+
+    if action == "acc" and parts[2] then
+        local room = parts[3] and parts[3]:lower() or "all"
+        if not isPlayerInWorld(parts[2]) then
+            L(C.dim, parts[2], " Belum di world, antri (`2ACC)")
+        end
+        enqueueAcc({
+            action = "acc", target = parts[2],
+            flagType = room, vipArg = nil, vipOnly = false,
+        })
+        return
+    end
+
+    if action == "unacc" and parts[2] then
+        table.insert(pendingQueue, {
+            action   = "unacc",
+            target   = parts[2],
+            flagType = parts[3] and parts[3]:lower() or nil,
+            vipArg   = parseVipInput(parts[4] or ""),
+            vipOnly  = false,
+        })
+        return
+    end
+
+    if action == "unaccall" then
+        local uidsStr = parts[2] and parts[2]:match("^uids:(.+)$")
+        local skipStr = parts[2] and parts[2]:match("^skip:(.+)$")
+        if uidsStr then
+            table.insert(pendingQueue, { action = "unaccall_direct", targetUids = parseUidList(uidsStr) })
+        else
+            table.insert(pendingQueue, { action = "unaccall", skipUids = skipStr and parseUidList(skipStr) or nil })
+        end
+        return
+    end
 
     if action == "addflag" then
         local target = parts[2]
         local room   = parts[3] and parts[3]:lower() or "all"
         if not target then return end
-        if isPlayerInWorld(target) then
-            RunThread(function() doAddFlag(target, room) end)
-        else
-            table.insert(pendingQueue, { action = "addflag", target = target, flagType = room })
+        if not isPlayerInWorld(target) then
+            L(C.dim, target, " Belum di world, antri (`2ADDFLAG)")
         end
+        table.insert(pendingQueue, { action = "addflag", target = target, flagType = room, since = dedupeClock })
 
     elseif action == "unflag" then
         local target = parts[2]
@@ -1422,11 +1501,13 @@ local function handleBotCommand(parts)
         local room   = parts[3] and parts[3]:lower() or "all"
         local vipArg = parseVipInput(parts[4] or "0")
         if not target then return end
-        if isPlayerInWorld(target) then
-            RunThread(function() doAcc(target, room, vipArg, true) end)
-        else
-            table.insert(pendingQueue, { action = "acc", target = target, flagType = room, vipArg = vipArg, vipOnly = true })
+        if not isPlayerInWorld(target) then
+            L(C.dim, target, " Belum di world, antri (`2ADDFLAG)")
         end
+        table.insert(pendingQueue, {
+            action = "acc", target = target, flagType = room,
+            vipArg = vipArg, vipOnly = true, since = dedupeClock,
+        })
 
     elseif action == "unvip" then
         local target = parts[2]
@@ -1454,14 +1535,10 @@ local function handleBotCommand(parts)
 
     elseif action == "accall" and parts[2] then
         local target = parts[2]
-        if isPlayerInWorld(target) then
-            RunThread(function() runAccAllTarget(target, false) end)
-        else
-            L(C.dim, target, " belum di world, antri (accall)")
-            table.insert(pendingQueue, {
-                action = "accall", target = target,
-            })
+        if not isPlayerInWorld(target) then
+            L(C.dim, target, " Belum di world, antri (`2ACCALL)")
         end
+        table.insert(pendingQueue, { action = "accall", target = target, since = dedupeClock })
     end
 end
 
@@ -1513,21 +1590,15 @@ RunThread(function()
         if not startupCmd then break end
         drained = drained + 1
         local parts = parseCmdLine(startupCmd)
-        if #parts > 0 then queueCommand(parts) end
+        if #parts > 0 then handleBotCommand(parts) end
     end
-    if drained > 0 then L(C.info, drained, " command lama masuk antrian") end
+    if drained > 0 then L(C.info, drained, " Command lama masuk antrian") end
 
     while true do
         local cmd = readAndClearCmd()
         if cmd then
             local parts = parseCmdLine(cmd)
-            if #parts > 0 then
-                if not isRunning then
-                    handleBotCommand(parts)
-                else
-                    queueCommand(parts)
-                end
-            end
+            if #parts > 0 then handleBotCommand(parts) end
         end
 
         if not isRunning and #pendingQueue > 0 then
@@ -1569,14 +1640,35 @@ RunThread(function()
                     if not tile or tile.fg ~= VIP_DOOR_ID then
                         local netid      = LastToucher[key]
                         local playerName = "Unknown Player"
+                        local playerUID  = nil
 
                         if netid then
                             local plr = GetPlayer(netid)
-                            if plr then playerName = (plr.name:gsub("`.", "")) end
+                            if plr then 
+                                playerName = (plr.name:gsub("`.", ""))
+                                playerUID  = plr.userid
+                            end
+                        end
+                        
+                        if playerName == "Unknown Player" then
+                            for _, p in pairs(GetPlayerList() or {}) do
+                                local px = math.floor(((p.pos and p.pos.x) or 0) / 32)
+                                local py = math.floor(((p.pos and p.pos.y) or 0) / 32)
+                                if math.abs(px - x) <= 2 and math.abs(py - y) <= 2 then
+                                    playerName = (p.name:gsub("`.", ""))
+                                    playerUID  = p.userid
+                                    break
+                                end
+                            end
                         end
 
-                        L(C.err, "VIP door hancur ", C.txt, "(", x, ",", y, ")", C.dim, " oleh ", C.txt, playerName)
-                        sendVipBreakWebhook(playerName, world.name, x, y)
+                        local nameWithUID = playerName
+                        if playerUID then
+                            nameWithUID = playerName .. " (UID: " .. playerUID .. ")"
+                        end
+
+                        L(C.err, "VIP door hancur ", C.txt, "(", x, ",", y, ")", C.dim, " oleh ", C.txt, nameWithUID)
+                        sendVipBreakNotification(nameWithUID, world.name, x, y)
 
                         DoorPositions[key] = nil
                         LastToucher[key]   = nil
@@ -1605,10 +1697,10 @@ end)
 L(C.ok, "Loaded")
 
 local SPAMMER_LIST = {
-    { label = "infinity", color = ROOM_COLOR.infinity, x = 71, y = 30, spam_text = "`5MAX 5 BLACK" },
-    { label = "recom",    color = ROOM_COLOR.recom,    x = 71, y = 38, spam_text = "`8MAX 1 BLACK" },
-    { label = "inti",     color = ROOM_COLOR.inti,     x = 29, y = 38, spam_text = "`4MAX 25 BGL" },
-    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`2MAX 5 BGL" },
+    { label = "infinity", color = ROOM_COLOR.infinity, x = 71, y = 30, spam_text = "`b(`9INFINITY`b) `5MAX 5 BLACK" },
+    { label = "recom",    color = ROOM_COLOR.recom,    x = 71, y = 38, spam_text = "`b(`9RECOM`b) `8MAX 1 BLACK" },
+    { label = "inti",     color = ROOM_COLOR.inti,     x = 29, y = 38, spam_text = "`b(`9INTI`b) `4MAX 25 BGL" },
+    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`b(`9BASIC`b)`2MAX 5 BGL" },
     { label = "owner",    color = C.hl,                x = 50, y = 31, spam_text = "`#BUY `2ACC`w/`4PROBLEM `8CONTACT ADMIN ON BOARD ^^^" },
 
     { label = "slot-6",   color = C.dim, x = 51, y = 17, spam_text = nil },
@@ -1956,7 +2048,7 @@ local function checkSpammerText(netid, slot)
     local r = editSpammerText(netid, slot)
     if r == "fail" then
         SPAMMER_CHECKED[netid] = nil
-        slotLog(slot, C.err, "gagal: dialog tidak muncul")
+        slotLog(slot, C.err, "Gagal: dialog tidak muncul")
     else
         SPAMMER_CHECKED[netid] = { text = slot.spam_text, at = afkEpoch() }
         if r == "updated" then slotLog(slot, C.ok, "Text diperbarui") end
@@ -1975,7 +2067,7 @@ AddHook("OnVariant", "SpammerTalkAutoDetect", function(var)
         if not text:find(slot.spam_text, 1, true) then
             if SPAMMER_CHECKED[netid] then
                 SPAMMER_CHECKED[netid] = nil
-                slotLog(slot, C.warn, "Text terdeteksi berbeda, otomatis memperbaiki...")
+                slotLog(slot, C.warn, "Text terdeteksi berbeda, memperbaiki...")
             end
         end
     end
@@ -2013,7 +2105,7 @@ local function placeSpammer(pos)
     end
 
     if not spammerNetID then
-        slotLog(pos, C.err, "gagal: tidak terpasang")
+        slotLog(pos, C.err, "Gagal: tidak terpasang")
         return nil
     end
 
@@ -2025,7 +2117,7 @@ local function processSpammerSlave(pos)
     if not netid then return false end
 
     if pos.spam_text == nil or pos.spam_text == "" then
-        slotLog(pos, C.ok, "terpasang")
+        slotLog(pos, C.ok, "Terpasang")
         return true
     end
 
