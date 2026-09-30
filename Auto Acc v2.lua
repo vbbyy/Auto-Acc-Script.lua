@@ -1700,7 +1700,7 @@ local SPAMMER_LIST = {
     { label = "infinity", color = ROOM_COLOR.infinity, x = 71, y = 30, spam_text = "`b(`9INFINITY`b) `5MAX 5 BLACK" },
     { label = "recom",    color = ROOM_COLOR.recom,    x = 71, y = 38, spam_text = "`b(`9RECOM`b) `8MAX 1 BLACK" },
     { label = "inti",     color = ROOM_COLOR.inti,     x = 29, y = 38, spam_text = "`b(`9INTI`b) `4MAX 25 BGL" },
-    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`b(`9BASIC`b)`2MAX 5 BGL" },
+    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`b(`9BASIC`b) `2MAX 5 BGL" },
     { label = "owner",    color = C.hl,                x = 50, y = 31, spam_text = "`#BUY `2ACC`w/`4PROBLEM `8CONTACT ADMIN ON BOARD ^^^" },
 
     { label = "slot-6",   color = C.dim, x = 51, y = 17, spam_text = nil },
