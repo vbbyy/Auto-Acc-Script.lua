@@ -14,31 +14,31 @@ local WAIT_PLAYER_SEC   = 180
 
 local WHITELIST_IDS = { 536347, 494414, 188089, 748280, 240523, 996019, 366859 }
 
-local LOCK = { x = 50, y = 51 }
+local LOCK = { x = 56, y = 46 }
 
 local FLAGS = {
-    basic    = { x = 29, y = 30 },  
-    inti     = { x = 29, y = 46 },  
-    recom    = { x = 71, y = 46 },   
-    infinity = { x = 71, y = 30 },
+    basic    = { x = 35, y = 23 },  
+    inti     = { x = 35, y = 38 },  
+    recom    = { x = 76, y = 38 },   
+    infinity = { x = 76, y = 23 },
 }
 
 local VIP_DOORS = {
     basic = {
-        { x=40, y=21 }, { x=40, y=23 }, { x=40, y=25 },
-        { x=40, y=27 }, { x=40, y=29 }, { x=40, y=31 }, { x=40, y=33 },
+        { x=47, y=18 }, { x=47, y=20 }, { x=47, y=22 },
+        { x=47, y=24 }, { x=47, y=26 }, { x=47, y=28 }, { x=47, y=30 },
     },
     inti = {
-        { x=40, y=37 }, { x=40, y=39 }, { x=40, y=41 },
-        { x=40, y=43 }, { x=40, y=45 }, { x=40, y=47 }, { x=40, y=49 },
+        { x=47, y=33 }, { x=47, y=35 }, { x=47, y=37 },
+        { x=47, y=39 }, { x=47, y=41 }, { x=47, y=43 }, { x=47, y=45 },
     },
     recom = {
-        { x=60, y=37 }, { x=60, y=39 }, { x=60, y=41 },
-        { x=60, y=43 }, { x=60, y=45 }, { x=60, y=47 }, { x=60, y=49 },
+        { x=65, y=33 }, { x=65, y=35 }, { x=65, y=37 },
+        { x=65, y=39 }, { x=65, y=41 }, { x=65, y=43 }, { x=65, y=45 },
     },
     infinity = {
-        { x=60, y=21 }, { x=60, y=23 }, { x=60, y=25 },
-        { x=60, y=27 }, { x=60, y=29 }, { x=60, y=31 }, { x=60, y=33 },
+        { x=65, y=18 }, { x=65, y=20 }, { x=65, y=22 },
+        { x=65, y=24 }, { x=65, y=26 }, { x=65, y=28 }, { x=65, y=30 },
     },
 }
 
@@ -1697,17 +1697,17 @@ end)
 L(C.ok, "Loaded")
 
 local SPAMMER_LIST = {
-    { label = "infinity", color = ROOM_COLOR.infinity, x = 71, y = 30, spam_text = "`b(`9INFINITY`b) `5MAX 5 BLACK" },
-    { label = "recom",    color = ROOM_COLOR.recom,    x = 71, y = 38, spam_text = "`b(`9RECOM`b) `8MAX 1 BLACK" },
-    { label = "inti",     color = ROOM_COLOR.inti,     x = 29, y = 38, spam_text = "`b(`9INTI`b) `4MAX 25 BGL" },
-    { label = "basic",    color = ROOM_COLOR.basic,    x = 29, y = 30, spam_text = "`b(`9BASIC`b) `2MAX 5 BGL" },
-    { label = "owner",    color = C.hl,                x = 50, y = 31, spam_text = "`#BUY `2ACC`w/`4PROBLEM `8CONTACT ADMIN ON BOARD ^^^" },
+    { label = "infinity", color = ROOM_COLOR.infinity, x = 76, y = 23, spam_text = "`b(`9INFINITY`b) `5MAX 5 BLACK" },
+    { label = "recom",    color = ROOM_COLOR.recom,    x = 76, y = 38, spam_text = "`b(`9RECOM`b) `8MAX 1 BLACK" },
+    { label = "inti",     color = ROOM_COLOR.inti,     x = 35, y = 38, spam_text = "`b(`9INTI`b) `4MAX 25 BGL" },
+    { label = "basic",    color = ROOM_COLOR.basic,    x = 35, y = 23, spam_text = "`b(`9BASIC`b)`2MAX 5 BGL" },
+    { label = "owner",    color = C.hl,                x = 56, y = 45, spam_text = "AFK 20DL" },
 
-    { label = "slot-6",   color = C.dim, x = 51, y = 17, spam_text = nil },
-    { label = "slot-7",   color = C.dim, x = 52, y = 17, spam_text = nil },
-    { label = "slot-8",   color = C.dim, x = 53, y = 17, spam_text = nil },
-    { label = "slot-9",   color = C.dim, x = 54, y = 17, spam_text = nil },
-    { label = "slot-10",  color = C.dim, x = 55, y = 17, spam_text = nil },
+    { label = "slot-6",   color = C.dim, x = 56, y = 25, spam_text = "`#BUY `2ACC`w/`4PROBLEM `8CONTACT ADMIN ON BOARD ^^^" },
+    { label = "slot-7",   color = C.dim, x = 67, y = 0, spam_text = nil },
+    { label = "slot-8",   color = C.dim, x = 68, y = 0, spam_text = nil },
+    { label = "slot-9",   color = C.dim, x = 69, y = 0, spam_text = nil },
+    { label = "slot-10",  color = C.dim, x = 70, y = 0, spam_text = nil },
 }
 
 local SPAMMER_NETID = {}   
