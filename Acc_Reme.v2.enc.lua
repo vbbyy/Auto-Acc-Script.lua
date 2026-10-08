@@ -22,8 +22,6 @@ end
 
 local _payload = table.concat(_b)
 
--- Hash32 = fungsi FNV-1a 32-bit bawaan Bothax, fallback manual kalau dijalankan
--- di luar Bothax (mis. buat testing pakai lua5.4 biasa / PUC-Lua).
 local _h32
 if _G["Hash32"] then
     _h32 = Hash32(_payload)
